@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"url-shortener/internal/config"
+	"url-shortener/internal/storage/posgtres"
 )
 
 const (
@@ -12,21 +15,38 @@ const (
 	envProd  = "prod"
 )
 
+type Data struct {
+	Id    int
+	Alias string
+	Url   string
+}
+
 func main() {
 	cfg := config.MustLoad()
-
 	log := setupLogger(cfg.Env)
 	log.Info("starting url-shortener", slog.String("env", cfg.Env))
 	log.Debug("debugger enabled")
 
-	// TODO: init logger: slog
+	var data Data
 
-	// TODO: init storage: postgres
+	db, err := posgtres.New(context.Background(), cfg.Settings)
+	if err != nil {
+		fmt.Println(123)
+		return
+	}
+
+	// Вместо использования QueryRow, используйте QueryRowContext
+	err = db.QueryRow(context.Background(), "SELECT id, alias, url FROM url LIMIT 1").Scan(&data.Id, &data.Alias, &data.Url)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	fmt.Println(data)
 
 	// TODO: init router: chi
 
 	// TODO: run server
-
 }
 
 func setupLogger(env string) *slog.Logger {

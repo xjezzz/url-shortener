@@ -11,6 +11,16 @@ type Config struct {
 	Env         string `yaml:"env" env-default:"local"`
 	StoragePath string `yaml:"storage_path" env-required:"true"`
 	HTTPServer  `yaml:"http_server"`
+	Settings    `yaml:"storage"`
+}
+
+type Settings struct {
+	Username    string `json:"username"`
+	Password    string `json:"password"`
+	Host        string `json:"host"`
+	Port        string `json:"port"`
+	Database    string `json:"database"`
+	MaxAttempts int    `json:"max_attempts"`
 }
 
 type HTTPServer struct {
@@ -29,8 +39,10 @@ func MustLoad() *Config {
 	}
 
 	var cfg Config
+
 	if err := cleanenv.ReadConfig(configPath, &cfg); err != nil {
 		log.Fatalf("cannot read config: %s", err)
 	}
+
 	return &cfg
 }
