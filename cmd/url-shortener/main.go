@@ -2,10 +2,13 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"log/slog"
 	"os"
 	"url-shortener/internal/config"
+	"url-shortener/internal/lib/logger/handlers/slogpretty"
+	"url-shortener/internal/lib/logger/sl"
 	"url-shortener/internal/storage/posgtres"
 )
 
@@ -15,11 +18,11 @@ const (
 	envProd  = "prod"
 )
 
-type Data struct {
-	Id    int
-	Alias string
-	Url   string
-}
+//type Data struct {
+//	Id    int
+//	Alias string
+//	Url   string
+//}
 
 func main() {
 	cfg := config.MustLoad()
@@ -27,24 +30,21 @@ func main() {
 	log.Info("starting url-shortener", slog.String("env", cfg.Env))
 	log.Debug("debugger enabled")
 
-	var data Data
+	//var data Data
 
-	db, err := posgtres.New(context.Background(), cfg.Settings)
+	storage, err := posgtres.New(context.Background(), cfg.Settings)
 	if err != nil {
-		fmt.Println(123)
+		log.Error("failed to init storage", sl.Err(err))
 		return
 	}
+	_ = storage
 
-	// Вместо использования QueryRow, используйте QueryRowContext
-	err = db.QueryRow(context.Background(), "SELECT id, alias, url FROM url LIMIT 1").Scan(&data.Id, &data.Alias, &data.Url)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
+	router := chi.NewRouter()
 
-	fmt.Println(data)
-
-	// TODO: init router: chi
+	router.Use(middleware.RequestID)
+	router.Use(middleware.Logger)
+	router.Use(middleware.Recoverer)
+	router.Use(middleware.URLFormat)
 
 	// TODO: run server
 }
@@ -53,7 +53,19 @@ func setupLogger(env string) *slog.Logger {
 	var log *slog.Logger
 	switch env {
 	case envLocal:
-		log = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+		log = setupPrettySlog()
 	}
 	return log
+}
+
+func setupPrettySlog() *slog.Logger {
+	opts := slogpretty.PrettyHandlerOptions{
+		SlogOpts: &slog.HandlerOptions{
+			Level: slog.LevelDebug,
+		},
+	}
+
+	handler := opts.NewPrettyHandler(os.Stdout)
+
+	return slog.New(handler)
 }
